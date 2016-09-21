@@ -30,6 +30,7 @@ import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.api.ValueChooserModel;
 import com.streamsets.pipeline.configurablestage.DTarget;
 import com.streamsets.pipeline.lib.el.RecordEL;
+import com.streamsets.pipeline.lib.el.StringEL;
 import com.streamsets.pipeline.lib.el.TimeEL;
 import com.streamsets.pipeline.lib.el.TimeNowEL;
 import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
@@ -52,6 +53,32 @@ import java.util.List;
 public class JdbcDTarget extends DTarget {
 
   @ConfigDef(
+          required = false,
+          type = ConfigDef.Type.BOOLEAN,
+          defaultValue = "false",
+          label = "Use Custom query",
+          description = "Whether to use default Insert or custom query",
+          displayPosition = 20,
+          group = "JDBC"
+  )
+  public boolean useCustomQuery;
+
+  @ConfigDef(
+          required = true,
+          type = ConfigDef.Type.TEXT,
+          mode = ConfigDef.Mode.SQL,
+          label = "SQL Query",
+          description = "INSERT INTO [database.]<table name> ( <column>, ... ) VALUES ( <value>, ... ) or UPDATE [database.]<table name> SET <column>=<value>, ... WHERE <column>=<value> ... or DELETE FROM [database.]<table> WHERE <column>=<value>",
+          elDefs = {StringEL.class, RecordEL.class},
+          evaluation = ConfigDef.Evaluation.EXPLICIT,
+          displayPosition = 20,
+          dependsOn = "useCustomQuery",
+          triggeredByValue = "true",
+          group = "JDBC"
+  )
+  public String query;
+
+  @ConfigDef(
       required = true,
       type = ConfigDef.Type.STRING,
       elDefs = {RecordEL.class, TimeEL.class, TimeNowEL.class},
@@ -61,6 +88,8 @@ public class JdbcDTarget extends DTarget {
       description = "Depending on the database, may be specified as <schema>.<table>. Some databases require schema " +
           "be specified separately in the connection string.",
       displayPosition = 30,
+      dependsOn = "useCustomQuery",
+      triggeredByValue = "false",
       group = "JDBC"
   )
   public String tableNameTemplate;
@@ -72,6 +101,8 @@ public class JdbcDTarget extends DTarget {
       label = "Field to Column Mapping",
       description = "Optionally specify additional field mappings when input field name and column name don't match.",
       displayPosition = 40,
+      dependsOn = "useCustomQuery",
+      triggeredByValue = "false",
       group = "JDBC"
   )
   @ListBeanModel
@@ -132,6 +163,8 @@ public class JdbcDTarget extends DTarget {
   @Override
   protected Target createTarget() {
     return new JdbcTarget(
+        useCustomQuery,
+        query,
         tableNameTemplate,
         columnNames,
         rollbackOnError,

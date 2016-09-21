@@ -20,12 +20,7 @@
 package com.streamsets.pipeline.stage.destination.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.streamsets.pipeline.api.Field;
-import com.streamsets.pipeline.api.OnRecordError;
-import com.streamsets.pipeline.api.Record;
-import com.streamsets.pipeline.api.Stage;
-import com.streamsets.pipeline.api.StageException;
-import com.streamsets.pipeline.api.Target;
+import com.streamsets.pipeline.api.*;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
 import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
@@ -40,20 +35,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Time;
+import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @SuppressWarnings("Duplicates")
 public class TestJdbcTarget {
@@ -65,6 +53,9 @@ public class TestJdbcTarget {
   private final String database = "TEST";
   private final String tableName = "TEST.TEST_TABLE";
 
+  private final String updateQuery = "UPDATE TEST.TEST_TABLE" +
+          " SET FIRST_NAME = '${record:value(\"first_name\")}'" +
+          " WHERE P_ID = '${record:value(\"[0]\")}'";
   private final String h2ConnectionString = "jdbc:h2:mem:" + database;
 
   private Connection connection = null;
@@ -716,4 +707,58 @@ public class TestJdbcTarget {
     }
   }
 
+  @Test
+  public void testUseCustomQueryOption() throws Exception {
+    List<JdbcFieldColumnParamMapping> fieldMappings = ImmutableList.of(
+            new JdbcFieldColumnParamMapping("[0]", "P_ID"),
+            new JdbcFieldColumnParamMapping("[1]", "FIRST_NAME"),
+            new JdbcFieldColumnParamMapping("[2]", "LAST_NAME"),
+            new JdbcFieldColumnParamMapping("[3]", "TS")
+    );
+
+    Target defaultTaget = new JdbcTarget(
+            tableName,
+            fieldMappings,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+
+    TargetRunner defaultTagetRunner = new TargetRunner.Builder(JdbcDTarget.class, defaultTaget).build();
+
+    List<Stage.ConfigIssue> issues = defaultTagetRunner.runValidateConfigs();
+    assertEquals(0, issues.size());
+
+    Target notUseCustomQueryTarget = new JdbcTarget(
+            false,
+            null,
+            tableName,
+            fieldMappings,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+
+    TargetRunner notUseCustomQueryTargetRunner = new TargetRunner.Builder(JdbcDTarget.class, notUseCustomQueryTarget).build();
+    assertEquals(0, notUseCustomQueryTargetRunner.runValidateConfigs().size());
+
+    Target useCustomQueryTarget = new JdbcTarget(
+            true,
+            updateQuery,
+            tableName,
+            fieldMappings,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+
+    TargetRunner useCustomQueryTargetRunner = new TargetRunner.Builder(JdbcDTarget.class, useCustomQueryTarget).build();
+    assertEquals(0, useCustomQueryTargetRunner.runValidateConfigs().size());
+  }
 }

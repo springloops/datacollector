@@ -63,6 +63,10 @@ public class JdbcTarget extends BaseTarget {
   private final boolean useMultiRowInsert;
   private final int maxPrepStmtParameters;
 
+  private final boolean useCustomQuery;
+  private final String query;
+  private ELEval queryEval;
+
   private final String tableNameTemplate;
   private final List<JdbcFieldColumnParamMapping> customMappings;
 
@@ -98,6 +102,32 @@ public class JdbcTarget extends BaseTarget {
       final ChangeLogFormat changeLogFormat,
       final HikariPoolConfigBean hikariConfigBean
   ) {
+    this(
+        false,
+        null,
+        tableNameTemplate,
+        customMappings,
+        rollbackOnError,
+        useMultiRowInsert,
+        maxPrepStmtParameters,
+        changeLogFormat,
+        hikariConfigBean
+    );
+  }
+
+  public JdbcTarget(
+          final boolean useCustomQuery,
+          final String query,
+          final String tableNameTemplate,
+          final List<JdbcFieldColumnParamMapping> customMappings,
+          final boolean rollbackOnError,
+          final boolean useMultiRowInsert,
+          int maxPrepStmtParameters,
+          final ChangeLogFormat changeLogFormat,
+          final HikariPoolConfigBean hikariConfigBean
+  ) {
+    this.useCustomQuery = useCustomQuery;
+    this.query = query;
     this.tableNameTemplate = tableNameTemplate;
     this.customMappings = customMappings;
     this.rollbackOnError = rollbackOnError;
@@ -117,37 +147,56 @@ public class JdbcTarget extends BaseTarget {
 
     issues = hikariConfigBean.validateConfigs(context, issues);
 
+    if (useCustomQuery) {
+      _initWithCustomQuery(context, issues);
+    } else {
+      _initWithTableName(context, issues);
+    }
+
+    return issues;
+  }
+
+  private void _initWithTableName(final Target.Context context, final List<ConfigIssue> issues) {
     tableNameVars = getContext().createELVars();
     tableNameEval = context.createELEval(JdbcUtil.TABLE_NAME);
     ELUtils.validateExpression(
-        tableNameEval,
-        tableNameVars,
-        tableNameTemplate,
-        getContext(),
-        Groups.JDBC.getLabel(),
-        JdbcUtil.TABLE_NAME,
-        JdbcErrors.JDBC_26,
-        String.class,
-        issues
+            tableNameEval,
+            tableNameVars,
+            tableNameTemplate,
+            getContext(),
+            Groups.JDBC.getLabel(),
+            JdbcUtil.TABLE_NAME,
+            JdbcErrors.JDBC_26,
+            String.class,
+            issues
     );
 
     if (issues.isEmpty() && null == dataSource) {
       try {
         dataSource = JdbcUtil.createDataSourceForWrite(
-            hikariConfigBean,
-            driverProperties,
-            tableNameTemplate,
-            issues,
-            customMappings,
-            getContext()
+                hikariConfigBean,
+                driverProperties,
+                tableNameTemplate,
+                issues,
+                customMappings,
+                getContext()
         );
       } catch (RuntimeException | SQLException e) {
         LOG.debug("Could not connect to data source", e);
         issues.add(getContext().createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, e.toString()));
       }
     }
+  }
 
-    return issues;
+  private void _initWithCustomQuery(final Target.Context context, final List<ConfigIssue> issues) {
+    queryEval = getContext().createELEval("query");
+    if (issues.isEmpty() && null == dataSource) {
+      try {
+        dataSource = JdbcUtil.createDataSourceForRead(hikariConfigBean, driverProperties);
+      } catch (StageException e) {
+        issues.add(context.createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, e.toString()));
+      }
+    }
   }
 
   @Override
