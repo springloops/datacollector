@@ -23,21 +23,17 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.streamsets.pipeline.api.Batch;
+import com.streamsets.pipeline.api.Record;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.Target;
 import com.streamsets.pipeline.api.base.BaseTarget;
+import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.el.ELEval;
+import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.lib.el.ELUtils;
-import com.streamsets.pipeline.lib.jdbc.ChangeLogFormat;
-import com.streamsets.pipeline.lib.jdbc.JdbcErrors;
-import com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean;
-import com.streamsets.pipeline.lib.jdbc.JdbcFieldColumnParamMapping;
-import com.streamsets.pipeline.lib.jdbc.JdbcGenericRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcMultiRowRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcRecordWriter;
-import com.streamsets.pipeline.lib.jdbc.JdbcUtil;
-import com.streamsets.pipeline.lib.jdbc.MicrosoftJdbcRecordWriter;
+import com.streamsets.pipeline.lib.el.RecordEL;
+import com.streamsets.pipeline.lib.jdbc.*;
 import com.streamsets.pipeline.stage.common.DefaultErrorRecordHandler;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import com.zaxxer.hikari.HikariDataSource;
@@ -46,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -245,6 +242,43 @@ public class JdbcTarget extends BaseTarget {
   @Override
   @SuppressWarnings("unchecked")
   public void write(Batch batch) throws StageException {
-    JdbcUtil.write(batch, tableNameEval, tableNameVars, tableNameTemplate, recordWriters, errorRecordHandler);
+    if (useCustomQuery) {
+      try {
+        connection = dataSource.getConnection();
+        Iterator<Record> batchIterator = batch.getRecords();
+
+        while (batchIterator.hasNext()) {
+          Record record = batchIterator.next();
+          writeUseCustomQuery(record);
+        }
+      } catch (OnRecordErrorException error) {
+        errorRecordHandler.onError(error);
+      } catch (SQLException e) {
+        String formattedError = JdbcUtil.formatSqlException(e);
+        LOG.error(formattedError, e);
+        LOG.error("Query failed at: {}", System.currentTimeMillis());
+      } finally {
+        JdbcUtil.closeQuietly(connection);
+      }
+
+    } else {
+      JdbcUtil.write(batch, tableNameEval, tableNameVars, tableNameTemplate, recordWriters, errorRecordHandler);
+    }
+
   }
+
+  private void writeUseCustomQuery(Record record) throws StageException {
+    ELVars elVars = getContext().createELVars();
+    RecordEL.setRecordInContext(elVars, record);
+
+    String preparedQuery;
+
+    try {
+      preparedQuery = queryEval.eval(elVars, query, String.class);
+    } catch (ELEvalException e) {
+      LOG.error(JdbcErrors.JDBC_01.getMessage(), query, e);
+      throw new OnRecordErrorException(record, JdbcErrors.JDBC_01, query);
+    }
+  }
+
 }
