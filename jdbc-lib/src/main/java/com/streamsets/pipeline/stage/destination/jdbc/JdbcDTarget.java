@@ -115,6 +115,8 @@ public class JdbcDTarget extends DTarget {
       defaultValue = "NONE",
       description = "If input is a change data capture log, specify the format.",
       displayPosition = 50,
+      dependsOn = "useCustomQuery",
+      triggeredByValue = "false",
       group = "JDBC"
   )
   @ValueChooserModel(ChangeLogFormatChooserValues.class)
@@ -139,6 +141,8 @@ public class JdbcDTarget extends DTarget {
       label = "Use Multi-Row Insert",
       description = "Whether to generate multi-row INSERT statements instead of batches of single-row INSERTs",
       displayPosition = 60,
+      dependsOn = "useCustomQuery",
+      triggeredByValue = "false",
       group = "JDBC"
   )
   public boolean useMultiRowInsert;
