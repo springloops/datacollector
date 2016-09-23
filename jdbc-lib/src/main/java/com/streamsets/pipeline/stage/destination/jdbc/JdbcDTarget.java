@@ -76,7 +76,7 @@ public class JdbcDTarget extends DTarget {
           triggeredByValue = "true",
           group = "JDBC"
   )
-  public String query;
+  public String customQueryTemplate;
 
   @ConfigDef(
       required = true,
@@ -168,7 +168,7 @@ public class JdbcDTarget extends DTarget {
   protected Target createTarget() {
     return new JdbcTarget(
         useCustomQuery,
-        query,
+        customQueryTemplate,
         tableNameTemplate,
         columnNames,
         rollbackOnError,

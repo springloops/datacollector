@@ -24,15 +24,13 @@ import com.google.common.base.Strings;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-import com.streamsets.pipeline.api.Batch;
-import com.streamsets.pipeline.api.Field;
-import com.streamsets.pipeline.api.Record;
-import com.streamsets.pipeline.api.Stage;
-import com.streamsets.pipeline.api.StageException;
+import com.streamsets.pipeline.api.*;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.el.ELEval;
+import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
 import com.streamsets.pipeline.lib.el.ELUtils;
+import com.streamsets.pipeline.lib.el.RecordEL;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
 import com.streamsets.pipeline.stage.destination.jdbc.Groups;
 import com.zaxxer.hikari.HikariConfig;
@@ -44,21 +42,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.sql.*;
+import java.util.*;
 
 import static com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean.MILLISECONDS;
 
@@ -78,6 +63,8 @@ public class JdbcUtil {
   private static final String CUSTOM_MAPPINGS = "columnNames";
 
   public static final String TABLE_NAME = "tableNameTemplate";
+  public static final String CUSTOM_QUERY = "customQueryTemplate";
+  public static final String CUSTOM_QUERY_FIELD_PATH = "/$_CUSTOM_QUERY";
 
   private JdbcUtil() {
   }
@@ -565,24 +552,45 @@ public class JdbcUtil {
 
   public static void write(
       Batch batch,
-      ELEval tableNameEval,
-      ELVars tableNameVars,
-      String tableNameTemplate,
+      ELEval evaludator,
+      ELVars variables,
+      String tableNameOrCustomQueryTemplate,
       LoadingCache<String, JdbcRecordWriter> recordWriters,
       ErrorRecordHandler errorRecordHandler
   ) throws StageException {
-    Multimap<String, Record> partitions = ELUtils.partitionBatchByExpression(
-        tableNameEval,
-        tableNameVars,
-        tableNameTemplate,
-        batch
-    );
-    Set<String> tableNames = partitions.keySet();
-    for (String tableName : tableNames) {
-      List<OnRecordErrorException> errors = recordWriters.getUnchecked(tableName).writeBatch(partitions.get(tableName));
-      for (OnRecordErrorException error : errors) {
-        errorRecordHandler.onError(error);
-      }
+
+    if (TABLE_NAME.equals(evaludator.getConfigName())) {
+        Multimap<String, Record> partitions = ELUtils.partitionBatchByExpression(
+                evaludator,
+                variables,
+                tableNameOrCustomQueryTemplate,
+                batch
+        );
+        Set<String> tableNames = partitions.keySet();
+        for (String tableName : tableNames) {
+          List<OnRecordErrorException> errors = recordWriters.getUnchecked(tableName).writeBatch(partitions.get(tableName));
+          for (OnRecordErrorException error : errors) {
+            errorRecordHandler.onError(error);
+          }
+        }
+    } else if(CUSTOM_QUERY.equals(evaludator.getConfigName())) {
+
+        List<Record> records = new ArrayList<>();
+        Iterator<Record> iterator = batch.getRecords();
+        while(iterator.hasNext()) {
+            Record record = iterator.next();
+            RecordEL.setRecordInContext(variables, record);
+            try {
+                String query = evaludator.eval(variables, tableNameOrCustomQueryTemplate, String.class);
+                record.set(CUSTOM_QUERY_FIELD_PATH, Field.create(query));
+                records.add(record);
+            } catch (ELEvalException e) {
+                LOG.error(JdbcErrors.JDBC_01.getMessage(), tableNameOrCustomQueryTemplate, e);
+                throw new OnRecordErrorException(record, JdbcErrors.JDBC_01, tableNameOrCustomQueryTemplate);
+            }
+        }
+        List<OnRecordErrorException> errors = recordWriters.getUnchecked(CUSTOM_QUERY).writeBatch(records);
     }
+
   }
 }
