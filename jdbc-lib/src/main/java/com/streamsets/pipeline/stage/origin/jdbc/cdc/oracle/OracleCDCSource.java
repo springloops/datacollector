@@ -88,8 +88,7 @@ public class OracleCDCSource extends BaseSource {
   private static final String DRIVER_CLASSNAME = HIKARI_CONFIG_PREFIX + "driverClassName";
   private static final String USERNAME = HIKARI_CONFIG_PREFIX + "username";
   private static final String CONNECTION_STR = HIKARI_CONFIG_PREFIX + "connectionString";
-  private static final String CURRENT_SCN =
-      "SELECT MAX(ktuxescnw * POWER(2, 32) + ktuxescnb) FROM sys.x$ktuxe";
+  private static final String CURRENT_SCN = "SELECT CURRENT_SCN FROM V$DATABASE";
   private static final int MISSING_LOG_CODE = 1291;
   private static final String START_SCN_OPT_STR = "STARTSCN => ";
   private static final String SWITCH_TO_CDB_ROOT = "ALTER SESSION SET CONTAINER = CDB$ROOT";
@@ -113,6 +112,7 @@ public class OracleCDCSource extends BaseSource {
   private static final String NULL = "NULL";
 
   private static final String NLS_DATE_FORMAT = "ALTER SESSION SET NLS_DATE_FORMAT = 'DD-MM-YYYY HH24:MI:SS'";
+  private static final String NLS_NUMERIC_FORMAT = "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = \'.,\'";
   private static final String NLS_TIMESTAMP_FORMAT =
       "ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF'";
   private static final SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
@@ -128,6 +128,7 @@ public class OracleCDCSource extends BaseSource {
   private String produceLogMinerProcedure;
   private String redoLogEntriesSql = null;
   private ErrorRecordHandler errorRecordHandler;
+  private boolean containerized = false;
 
   private HikariDataSource dataSource = null;
   private Connection connection = null;
@@ -137,6 +138,8 @@ public class OracleCDCSource extends BaseSource {
   private CallableStatement endLogMnr;
   private PreparedStatement dateStatement;
   private PreparedStatement tsStatement;
+  private PreparedStatement numericFormat;
+  private PreparedStatement switchContainer;
   private final ParseTreeWalker parseTreeWalker = new ParseTreeWalker();
   private final SQLListener sqlListener = new SQLListener();
 
@@ -233,6 +236,11 @@ public class OracleCDCSource extends BaseSource {
       endLogMnr.execute();
       connection.commit();
     } catch (Exception ex) {
+      // In preview, destroy gets called after timeout which can cause a SQLException
+      if (getContext().isPreview() && ex instanceof SQLException) {
+        LOG.warn("Exception while previewing", ex);
+        return NULL;
+      }
       LOG.error("Error while attempting to produce records", ex);
       errorRecordHandler.onError(JDBC_44, Throwables.getStackTraceAsString(ex));
     }
@@ -346,7 +354,6 @@ public class OracleCDCSource extends BaseSource {
       if (majorVersion == -1) {
         return issues;
       }
-      boolean switchedContainer = false;
       if (majorVersion >= 12) {
         if (!StringUtils.isEmpty(container)) {
           String switchToPdb = "ALTER SESSION SET CONTAINER = " + configBean.pdb;
@@ -357,7 +364,7 @@ public class OracleCDCSource extends BaseSource {
             issues.add(getContext().createConfigIssue(Groups.CREDENTIALS.name(), USERNAME, JDBC_40, container));
             return issues;
           }
-          switchedContainer = true;
+          containerized = true;
         }
       }
       tables = new ArrayList<>(configBean.baseConfigBean.tables.size());
@@ -383,10 +390,11 @@ public class OracleCDCSource extends BaseSource {
       container = CDB_ROOT;
       if (majorVersion >= 12) {
         try {
-          reusedStatement.execute(SWITCH_TO_CDB_ROOT);
+          switchContainer.execute();
+          LOG.info("Switched to CDB$ROOT to start LogMiner.");
         } catch (SQLException ex) {
           // Fatal only if we switched to a PDB earlier
-          if (switchedContainer) {
+          if (containerized) {
             LOG.error("Error while switching to container: " + container, ex);
             issues.add(getContext().createConfigIssue(Groups.CREDENTIALS.name(), USERNAME, JDBC_40, container));
             return issues;
@@ -486,6 +494,8 @@ public class OracleCDCSource extends BaseSource {
     getLatestSCN = connection.prepareStatement(CURRENT_SCN);
     dateStatement = connection.prepareStatement(NLS_DATE_FORMAT);
     tsStatement = connection.prepareStatement(NLS_TIMESTAMP_FORMAT);
+    numericFormat = connection.prepareStatement(NLS_NUMERIC_FORMAT);
+    switchContainer = connection.prepareStatement(SWITCH_TO_CDB_ROOT);
   }
 
   private void initializeLogMnrStatements() throws SQLException {
@@ -764,8 +774,12 @@ public class OracleCDCSource extends BaseSource {
   }
 
   private void alterSession() throws SQLException {
+    if (containerized) {
+      switchContainer.execute();
+    }
     dateStatement.execute();
     tsStatement.execute();
+    numericFormat.execute();
   }
 
   @VisibleForTesting

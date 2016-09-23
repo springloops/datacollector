@@ -20,6 +20,7 @@
 package com.streamsets.pipeline.stage.destination.hdfs.writer;
 
 import com.streamsets.pipeline.lib.event.EventCreator;
+import com.streamsets.pipeline.lib.io.fileref.FileRefUtil;
 
 public final class HdfsEvents {
 
@@ -31,6 +32,11 @@ public final class HdfsEvents {
     .withRequiredField("length") // Size of the closed file in bytes
     .build();
 
+
+  /**
+   * Fired when the file transfer is complete.
+   */
+  public static EventCreator FILE_TRANSFER_COMPLETE_EVENT = FileRefUtil.FILE_TRANSFER_COMPLETE_EVENT;
 
   private HdfsEvents() {
     // Instantiation is prohibited

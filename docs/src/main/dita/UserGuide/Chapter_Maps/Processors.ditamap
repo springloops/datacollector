@@ -63,6 +63,9 @@
    <topicref href="../Processors/FieldRenamer-Configuring.dita"/></topicref>
   <topicref href="../Processors/FieldSplitter.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Processors/FieldSplitter-NotEnoughSplits.dita"/>
+   <topicref href="../Processors/FieldSplitter-TooManySplits.dita"/>
+   <topicref href="../Processors/FieldSplitter-Example.dita"/>
    <topicref href="../Processors/FieldSplitter-Configuring.dita"/>
   </topicref>
   <topicref href="../Processors/FieldTypeConverter.dita" chunk="to-content">
@@ -76,7 +79,11 @@
    <topicmeta>
    <shortdesc/>
   </topicmeta>
+   <topicref href="../Processors/GeoIP-Databases.dita"/>
    <topicref href="../Processors/GeoIP-DatabaseFileLocation.dita"/>
+   <topicref href="../Processors/GeoIP-FieldTypes.dita">
+    <topicref href="../Processors/GeoIP-FullJSON.dita"/>
+   </topicref>
    <topicref href="../Processors/GeoIP-Configuring.dita"/></topicref>
   <topicref href="../Processors/Groovy.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
@@ -194,6 +201,8 @@
   </topicref>
   <topicref href="../Processors/ValueReplacer.dita" chunk="to-content">
    <topicmeta><shortdesc></shortdesc></topicmeta>
+   <topicref href="../Processors/ValueReplacer-ProcessingOrder.dita"/>
+   <topicref href="../Processors/ValueReplacer-DataTypes.dita"/>
    <topicref href="../Processors/ValueReplacer-Configuring.dita"/>
   </topicref>
   <topicref href="../Processors/XMLFlattener.dita" chunk="to-content">

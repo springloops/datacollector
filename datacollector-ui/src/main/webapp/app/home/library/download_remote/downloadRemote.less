@@ -1,5 +1,5 @@
 /**
- * Copyright 2015 StreamSets Inc.
+ * Copyright 2016 StreamSets Inc.
  *
  * Licensed under the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -17,15 +17,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.streamsets.pipeline.spark;
 
-import org.junit.Assert;
-import org.junit.Test;
+.download-remote-modal-form {
+  .modal-body {
+    height: 550px;
+    overflow: auto;
 
-public class TestAbstractStreamingBinding {
+    .properties {
+      list-style: none;
+      font-size: 0.9em;
+      padding: 0;
+      margin: 0;
 
-  @Test
-  public void testEncode() {
-    Assert.assertEquals("a%2Fb%2Fc", AbstractStreamingBinding.encode("a/b/c"));
+      li {
+        display: inline-block;
+        padding-left: @defaultPadding;
+      }
+
+      .properties-label {
+        opacity: 0.6;
+      }
+
+      .properties-value {
+
+      }
+    }
   }
 }

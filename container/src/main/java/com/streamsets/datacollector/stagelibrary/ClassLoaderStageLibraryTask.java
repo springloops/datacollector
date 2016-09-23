@@ -27,7 +27,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.streamsets.datacollector.config.ConfigDefinition;
 import com.streamsets.datacollector.config.ErrorHandlingChooserValues;
 import com.streamsets.datacollector.config.PipelineDefinition;
 import com.streamsets.datacollector.config.StageDefinition;
@@ -308,7 +307,6 @@ public class ClassLoaderStageLibraryTask extends AbstractTask implements StageLi
                 stagesInLibrary.put(key, stage.getClassName());
                 this.stageList.add(stage);
                 stageMap.put(key, stage);
-                computeDependsOnChain(stage);
               }
             }
           }
@@ -350,28 +348,6 @@ public class ClassLoaderStageLibraryTask extends AbstractTask implements StageLi
       }
       LOG.error("There cannot be 2 different versions of the same stage: {}", errors);
       throw new RuntimeException(Utils.format("There cannot be 2 different versions of the same stage: {}", errors));
-    }
-  }
-
-  private void computeDependsOnChain(StageDefinition stageDefinition) {
-    Map<String, ConfigDefinition> configDefinitionsMap = stageDefinition.getConfigDefinitionsMap();
-    for(Map.Entry<String, ConfigDefinition> entry :  configDefinitionsMap.entrySet()) {
-      ConfigDefinition configDef = entry.getValue();
-      ConfigDefinition tempConfigDef = configDef;
-      Map<String, List<Object>> dependsOnMap = new HashMap<>();
-      while(tempConfigDef != null &&
-        tempConfigDef.getDependsOn() != null &&
-        !tempConfigDef.getDependsOn().isEmpty()) {
-
-        dependsOnMap.put(tempConfigDef.getDependsOn(), tempConfigDef.getTriggeredByValues());
-        tempConfigDef = configDefinitionsMap.get(tempConfigDef.getDependsOn());
-      }
-      if(dependsOnMap.isEmpty()) {
-        //Request from UI to set null for efficiency
-        configDef.setDependsOnMap(null);
-      } else {
-        configDef.setDependsOnMap(dependsOnMap);
-      }
     }
   }
 
@@ -418,16 +394,18 @@ public class ClassLoaderStageLibraryTask extends AbstractTask implements StageLi
     ClassLoader cl = stageDefinition.getStageClassLoader();
     if (stageDefinition.isPrivateClassLoader()) {
       String key = getClassLoaderKey(cl);
-      try {
-        cl = privateClassLoaderPool.borrowObject(key);
-        LOG.debug("Got a private ClassLoader for '{}', for stage '{}', active private ClassLoaders='{}'",
-                  key, stageDefinition.getName(), privateClassLoaderPool.getNumActive());
-      } catch (Exception ex) {
-        String msg = Utils.format(
-            "Could not get a private ClassLoader for '{}', for stage '{}', active private ClassLoaders='{}': {}",
-            key, stageDefinition.getName(), privateClassLoaderPool.getNumActive(), ex.toString());
-        LOG.warn(msg, ex);
-        throw new RuntimeException(msg, ex);
+      synchronized (privateClassLoaderPool) {
+        try {
+          cl = privateClassLoaderPool.borrowObject(key);
+          LOG.debug("Got a private ClassLoader for '{}', for stage '{}', active private ClassLoaders='{}'",
+              key, stageDefinition.getName(), privateClassLoaderPool.getNumActive());
+        } catch (Exception ex) {
+          String msg = Utils.format(
+              "Could not get a private ClassLoader for '{}', for stage '{}', active private ClassLoaders='{}': {}",
+              key, stageDefinition.getName(), privateClassLoaderPool.getNumActive(), ex.toString());
+          LOG.warn(msg, ex);
+          throw new RuntimeException(msg, ex);
+        }
       }
     }
     return cl;
@@ -437,15 +415,19 @@ public class ClassLoaderStageLibraryTask extends AbstractTask implements StageLi
   public void releaseStageClassLoader(ClassLoader classLoader) {
     if (isPrivateClassLoader(classLoader)) {
       String key = getClassLoaderKey(classLoader);
-      try {
-        LOG.debug("Returning private ClassLoader for '{}'", key);
-        privateClassLoaderPool.returnObject(key, classLoader);
-        LOG.debug("Returned a private ClassLoader for '{}', active private ClassLoaders='{}'",
-                  key, privateClassLoaderPool.getNumActive());
-      } catch (Exception ex) {
-        LOG.warn("Could not return a private ClassLoader for '{}', active private ClassLoaders='{}'",
-                 key, privateClassLoaderPool.getNumActive());
-        throw new RuntimeException(ex);
+      synchronized (privateClassLoaderPool){
+        if (privateClassLoaderPool.getNumActive() > 0) {
+          try {
+            LOG.debug("Returning private ClassLoader for '{}'", key);
+            privateClassLoaderPool.returnObject(key, classLoader);
+            LOG.debug("Returned a private ClassLoader for '{}', active private ClassLoaders='{}'",
+                key, privateClassLoaderPool.getNumActive());
+          } catch (Exception ex) {
+            LOG.warn("Could not return a private ClassLoader for '{}', active private ClassLoaders='{}'",
+                key, privateClassLoaderPool.getNumActive());
+            throw new RuntimeException(ex);
+          }
+        }
       }
     }
   }

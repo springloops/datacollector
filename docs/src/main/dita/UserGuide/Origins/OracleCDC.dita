@@ -27,11 +27,12 @@
             and delete operations for one or more tables in a database. You can select the
             operations that you want to use.</p>
         <p>
-            <note>To use the Oracle CDC Client origin, you must enable LogMiner for the database
-                that you want to use. The origin uses JDBC to access the database.</note>
+            <note>To use Oracle CDC Client, you must enable LogMiner for the database that you want
+                to use and complete the necessary prerequisite tasks. The origin uses JDBC to access
+                the database.</note>
         </p>
         <p>When you configure Oracle CDC Client, you configure change data capture details, such as
-            the database and tables to read from, how to perform the initial change, the dictionary
+            the database and tables to read from, how to read the initial change, the dictionary
             source location, and the operations to include. </p>
         <p>You also specify JDBC connection information and user credentials. If the database was
             created in a pluggable database, state the pluggable database name. You can configure

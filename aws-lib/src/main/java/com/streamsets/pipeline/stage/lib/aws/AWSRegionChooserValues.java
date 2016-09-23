@@ -19,13 +19,12 @@
  */
 package com.streamsets.pipeline.stage.lib.aws;
 
-import com.amazonaws.regions.Regions;
 import com.streamsets.pipeline.api.base.BaseEnumChooserValues;
 
 public class AWSRegionChooserValues extends BaseEnumChooserValues {
 
   public AWSRegionChooserValues() {
-    super(Regions.class);
+    super(AWSRegions.class);
   }
 
 }

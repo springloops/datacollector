@@ -27,6 +27,7 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.config.CsvHeader;
 import com.streamsets.pipeline.config.CsvMode;
 import com.streamsets.pipeline.config.DataFormat;
@@ -36,6 +37,7 @@ import com.streamsets.pipeline.stage.common.FakeS3;
 import com.streamsets.pipeline.stage.common.TestUtil;
 import com.streamsets.pipeline.stage.destination.lib.DataGeneratorFormatConfig;
 import com.streamsets.pipeline.stage.lib.aws.AWSConfig;
+import com.streamsets.pipeline.stage.lib.aws.AWSRegions;
 import com.streamsets.pipeline.stage.lib.aws.ProxyConfig;
 import com.streamsets.pipeline.stage.lib.aws.SSEConfigBean;
 import com.streamsets.pipeline.stage.lib.aws.TransferManagerConfig;
@@ -46,6 +48,7 @@ import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.internal.util.reflection.Whitebox;
 
 import java.io.File;
 import java.io.IOException;
@@ -224,7 +227,8 @@ public class TestAmazonS3Target {
   private AmazonS3Target createS3targetWithTextData(String commonPrefix, String partition, boolean useCompression) {
 
     S3Config s3Config = new S3Config();
-    s3Config.setEndPointForTest("http://localhost:" + port);
+    s3Config.region = AWSRegions.OTHER;
+    s3Config.endpoint = "http://localhost:" + port;
     s3Config.bucket = BUCKET_NAME;
     s3Config.awsConfig = new AWSConfig();
     s3Config.awsConfig.awsAccessKeyId = "foo";
@@ -283,5 +287,32 @@ public class TestAmazonS3Target {
     Assert.assertTrue(eventRecord.has("/objectKey"));
     Assert.assertEquals(BUCKET_NAME, eventRecord.get("/bucket").getValueAsString());
     targetRunner.runDestroy();
+  }
+
+  @Test
+  public void testEmptyPrefixForNonWholeFileFormat() throws Exception {
+    String prefix = "testEventRecords";
+    AmazonS3Target amazonS3Target = createS3targetWithTextData(prefix, false);
+    S3TargetConfigBean targetConfigBean =  (S3TargetConfigBean) Whitebox.getInternalState(amazonS3Target, "s3TargetConfigBean");
+    targetConfigBean.fileNamePrefix = "";
+    TargetRunner targetRunner = new TargetRunner.Builder(AmazonS3DTarget.class, amazonS3Target).build();
+
+    List<Stage.ConfigIssue> issues = targetRunner.runValidateConfigs();
+    Assert.assertEquals(1, issues.size());
+  }
+
+  @Test
+  public void testEmptyPrefixForWholeFileFormat() throws Exception {
+    String prefix = "testEventRecords";
+    AmazonS3Target amazonS3Target = createS3targetWithTextData(prefix, false);
+    S3TargetConfigBean targetConfigBean =  (S3TargetConfigBean) Whitebox.getInternalState(amazonS3Target, "s3TargetConfigBean");
+    targetConfigBean.dataFormat = DataFormat.WHOLE_FILE;
+    targetConfigBean.dataGeneratorFormatConfig.fileNameEL = "sample";
+    targetConfigBean.fileNamePrefix = "";
+
+    TargetRunner targetRunner = new TargetRunner.Builder(AmazonS3DTarget.class, amazonS3Target).build();
+
+    List<Stage.ConfigIssue> issues = targetRunner.runValidateConfigs();
+    Assert.assertEquals(0, issues.size());
   }
 }

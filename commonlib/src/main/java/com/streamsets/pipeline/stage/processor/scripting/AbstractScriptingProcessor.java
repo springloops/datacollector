@@ -20,7 +20,9 @@
 package com.streamsets.pipeline.stage.processor.scripting;
 
 import com.streamsets.pipeline.api.Batch;
+import com.streamsets.pipeline.api.Field;
 import com.streamsets.pipeline.api.Record;
+import com.streamsets.pipeline.api.Stage;
 import com.streamsets.pipeline.api.StageException;
 import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.base.SingleLaneProcessor;
@@ -36,7 +38,9 @@ import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public abstract class AbstractScriptingProcessor extends SingleLaneProcessor {
@@ -55,12 +59,23 @@ public abstract class AbstractScriptingProcessor extends SingleLaneProcessor {
   }
 
   // This class will contain functions to expose to scripting processors
-  public class SdcFunctions extends ScriptTypedNullObject {
+  public class SdcFunctions {
 
     // To access getFieldNull function through SimpleBindings
     public Object getFieldNull(ScriptRecord scriptRecord, String fieldPath) {
-      return super.getFieldNull(getScriptObjectFactory().getRecord(scriptRecord), fieldPath);
+      return ScriptTypedNullObject.getFieldNull(getScriptObjectFactory().getRecord(scriptRecord), fieldPath);
     }
+
+    /**
+     * Create record
+     * Note: Default field value is null.
+     * @param recordSourceId the unique record id for this record.
+     * @return ScriptRecord The Newly Created Record
+     */
+    public ScriptRecord createRecord(String recordSourceId) {
+      return getScriptObjectFactory().createScriptRecord(getContext().createRecord(recordSourceId));
+    }
+
   }
 
   private final String scriptingEngineName;
@@ -70,7 +85,7 @@ public abstract class AbstractScriptingProcessor extends SingleLaneProcessor {
   private final  String script;
   private final SimpleBindings bindings = new SimpleBindings();
   // State obj for use by end-user scripts.
-  private final Object state;
+  private Object state;
 
   private CompiledScript compiledScript;
   private ScriptObjectFactory scriptObjectFactory;
@@ -88,7 +103,6 @@ public abstract class AbstractScriptingProcessor extends SingleLaneProcessor {
       ProcessingMode processingMode,
       String script
   ) {
-    state = getScriptObjectFactory().createMap(false);
     this.log = log;
     this.scriptingEngineName = scriptingEngineName;
     this.scriptConfigGroup = scriptConfigGroup;
@@ -99,19 +113,20 @@ public abstract class AbstractScriptingProcessor extends SingleLaneProcessor {
 
   private ScriptObjectFactory getScriptObjectFactory() {
     if (scriptObjectFactory == null) {
-      scriptObjectFactory = createScriptObjectFactory();
+      scriptObjectFactory = createScriptObjectFactory(getContext());
     }
     return scriptObjectFactory;
   }
 
-  protected ScriptObjectFactory createScriptObjectFactory() {
-    return new ScriptObjectFactory(engine);
-  }
+  protected abstract ScriptObjectFactory createScriptObjectFactory(Stage.Context context);
 
   @Override
   protected List<ConfigIssue> init() {
     List<ConfigIssue> issues = super.init();
     errorRecordHandler = new DefaultErrorRecordHandler(getContext());
+
+    //We need Stage.Context for createScriptObjectFactory()
+    state = getScriptObjectFactory().createMap(false);
 
     try {
       engine = new ScriptEngineManager(getClass().getClassLoader()).getEngineByName(scriptingEngineName);

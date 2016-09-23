@@ -33,7 +33,7 @@
         <li>Field Renamer - Renames fields in a record. </li>
         <li>Field Splitter - Splits the string values in a field into different fields.</li>
         <li>Field Type Converter - Converts the data types of fields.</li>
-        <li>Geo IP- Provides geographic location information based on an IP address. </li>
+        <li>Geo IP- Returns geolocation and IP intelligence information for a specified IP address. </li>
         <li>Groovy Evaluator - Processes records based on custom Groovy code.</li>
         <li>HBase Lookup - Performs key-value lookups in HBase.</li>
         <li>Hive Metadata - Generates Hive metadata and write information for HDFS. </li>
@@ -52,7 +52,7 @@
         <li>Redis Lookup - Performs key-value lookups in Redis.</li>
         <li>Static Lookup - Performs key-value lookups in local memory.</li>
         <li>Stream Selector - Routes data to different streams based on conditions.</li>
-        <li>Value Replacer - Replaces null values or replaces values with nulls.</li>
+        <li>Value Replacer - Replaces existing nulls or specified values with constants or nulls. </li>
         <li>XML Flattener - Flattens XML data in a string field.</li>
         <li>XML Parser - Parses XML data in a string field. </li>
       </ul></p>

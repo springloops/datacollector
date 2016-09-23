@@ -37,6 +37,7 @@ import com.streamsets.pipeline.sdk.StageRunner;
 import com.streamsets.pipeline.stage.common.FakeS3;
 import com.streamsets.pipeline.stage.common.TestUtil;
 import com.streamsets.pipeline.stage.lib.aws.AWSConfig;
+import com.streamsets.pipeline.stage.lib.aws.AWSRegions;
 import com.streamsets.pipeline.stage.lib.aws.ProxyConfig;
 import com.streamsets.pipeline.stage.origin.lib.BasicConfig;
 import com.streamsets.pipeline.stage.origin.lib.DataParserFormatConfig;
@@ -317,9 +318,11 @@ public class TestAmazonS3Source2 {
     s3ConfigBean.s3FileConfig = new S3FileConfig();
     s3ConfigBean.s3FileConfig.overrunLimit = 65;
     s3ConfigBean.s3FileConfig.prefixPattern = "*/*/*.log";
+    s3ConfigBean.s3FileConfig.objectOrdering = ObjectOrdering.TIMESTAMP;
 
     s3ConfigBean.s3Config = new S3Config();
-    s3ConfigBean.s3Config.setEndPointForTest("http://localhost:" + port);
+    s3ConfigBean.s3Config.region = AWSRegions.OTHER;
+    s3ConfigBean.s3Config.endpoint = "http://localhost:" + port;
     s3ConfigBean.s3Config.bucket = BUCKET_NAME;
     s3ConfigBean.s3Config.awsConfig = new AWSConfig();
     s3ConfigBean.s3Config.awsConfig.awsAccessKeyId = "foo";
@@ -351,12 +354,14 @@ public class TestAmazonS3Source2 {
     s3ConfigBean.s3FileConfig = new S3FileConfig();
     s3ConfigBean.s3FileConfig.overrunLimit = 65;
     s3ConfigBean.s3FileConfig.prefixPattern = "*/*.zip";
+    s3ConfigBean.s3FileConfig.objectOrdering = ObjectOrdering.TIMESTAMP;
 
     s3ConfigBean.dataFormatConfig.compression = Compression.ARCHIVE;
     s3ConfigBean.dataFormatConfig.filePatternInArchive = "*/*.log";
 
     s3ConfigBean.s3Config = new S3Config();
-    s3ConfigBean.s3Config.setEndPointForTest("http://localhost:" + port);
+    s3ConfigBean.s3Config.region = AWSRegions.OTHER;
+    s3ConfigBean.s3Config.endpoint = "http://localhost:" + port;
     s3ConfigBean.s3Config.bucket = BUCKET_NAME;
     s3ConfigBean.s3Config.awsConfig = new AWSConfig();
     s3ConfigBean.s3Config.awsConfig.awsAccessKeyId = "foo";
@@ -388,12 +393,14 @@ public class TestAmazonS3Source2 {
     s3ConfigBean.s3FileConfig = new S3FileConfig();
     s3ConfigBean.s3FileConfig.overrunLimit = 65;
     s3ConfigBean.s3FileConfig.prefixPattern = "*/logArchive*.tar.gz";
+    s3ConfigBean.s3FileConfig.objectOrdering = ObjectOrdering.TIMESTAMP;
 
     s3ConfigBean.dataFormatConfig.compression = Compression.COMPRESSED_ARCHIVE;
     s3ConfigBean.dataFormatConfig.filePatternInArchive = "*/[!.]*.log";
 
     s3ConfigBean.s3Config = new S3Config();
-    s3ConfigBean.s3Config.setEndPointForTest("http://localhost:" + port);
+    s3ConfigBean.s3Config.region = AWSRegions.OTHER;
+    s3ConfigBean.s3Config.endpoint = "http://localhost:" + port;
     s3ConfigBean.s3Config.bucket = BUCKET_NAME;
     s3ConfigBean.s3Config.awsConfig = new AWSConfig();
     s3ConfigBean.s3Config.awsConfig.awsAccessKeyId = "foo";
@@ -425,12 +432,14 @@ public class TestAmazonS3Source2 {
     s3ConfigBean.s3FileConfig = new S3FileConfig();
     s3ConfigBean.s3FileConfig.overrunLimit = 65;
     s3ConfigBean.s3FileConfig.prefixPattern = "*/testAvro*.tar.gz";
+    s3ConfigBean.s3FileConfig.objectOrdering = ObjectOrdering.TIMESTAMP;
 
     s3ConfigBean.dataFormatConfig.compression = Compression.COMPRESSED_ARCHIVE;
     s3ConfigBean.dataFormatConfig.filePatternInArchive = "[!.]*.avro";
 
     s3ConfigBean.s3Config = new S3Config();
-    s3ConfigBean.s3Config.setEndPointForTest("http://localhost:" + port);
+    s3ConfigBean.s3Config.region = AWSRegions.OTHER;
+    s3ConfigBean.s3Config.endpoint = "http://localhost:" + port;
     s3ConfigBean.s3Config.bucket = BUCKET_NAME;
     s3ConfigBean.s3Config.awsConfig = new AWSConfig();
     s3ConfigBean.s3Config.awsConfig.awsAccessKeyId = "foo";

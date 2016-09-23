@@ -79,8 +79,8 @@
   <topicref href="../Origins/JDBCConsumer.dita" chunk="to-content"> <topicmeta><shortdesc></shortdesc></topicmeta>
    <topicref href="../Origins/JDBCConsumer-DriverInstall.dita"/>
    <topicref href="../Origins/JDBCConsumer-OffsetColumn_Value.dita"/>
-   <topicref href="../Origins/JDBCConsumer-Recovery.dita"/>
    <topicref href="../Origins/JDBCConsumer-Full-IncrementalQueries.dita"/>
+   <topicref href="../Origins/JDBCConsumer-Recovery.dita"/>
    <topicref href="../Origins/JDBC-SQLQuery.dita">
     <topicref href="../Origins/JDBC-SQLQueryIncremental.dita"/>
     <topicref href="../Origins/JDBC-SQLQueryFull.dita"/>
@@ -149,6 +149,7 @@
     <topicref href="../Origins/OracleCDC-CDCAttributes.dita"/>
    </topicref>
    <topicref href="../Origins/OracleCDC-HiveDriftSolution.dita"/>
+   <topicref href="../Origins/OracleCDC-Preview.dita"/>
    <topicref href="../Origins/OracleCDC-Configuring.dita"/>
   </topicref>
   <topicref href="../Origins/RabbitMQ.dita" chunk="to-content">

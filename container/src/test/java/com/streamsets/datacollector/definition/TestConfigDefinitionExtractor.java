@@ -26,6 +26,7 @@ import com.streamsets.datacollector.el.ElConstantDefinition;
 import com.streamsets.datacollector.el.ElFunctionDefinition;
 import com.streamsets.pipeline.api.ConfigDef;
 import com.streamsets.pipeline.api.ConfigDefBean;
+import com.streamsets.pipeline.api.Dependency;
 import com.streamsets.pipeline.api.ElConstant;
 import com.streamsets.pipeline.api.ElFunction;
 import com.streamsets.pipeline.api.ElParam;
@@ -289,12 +290,104 @@ public class TestConfigDefinitionExtractor {
       a = cd2;
       b = cd1;
     }
-    Assert.assertEquals("b", a.getDependsOn());
-    Assert.assertEquals(ImmutableList.of("B"), a.getTriggeredByValues());
     Assert.assertEquals(1, a.getDependsOnMap().size());
-    Assert.assertEquals(ImmutableList.of("B"), a.getDependsOnMap().get("b"));
+    Assert.assertEquals(ImmutableSet.of("B"), new HashSet<>(a.getDependsOnMap().get("b")));
     Assert.assertEquals("", b.getDependsOn());
     Assert.assertNull(b.getTriggeredByValues());
+  }
+
+  public static class MultipleDependsOn {
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependencies = {
+            @Dependency(configName = "b", triggeredByValues = {"B", "C"}),
+            @Dependency(configName = "e", triggeredByValues = {"E", "F"})
+        }
+    )
+    public String a;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true
+    )
+    public String b;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true
+    )
+    public String e;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependsOn = "a",
+        triggeredByValue = "A"
+    )
+    public String f;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependencies = {
+            @Dependency(configName = "a", triggeredByValues = {"A"}),
+            @Dependency(configName = "e", triggeredByValues = {"G"}),
+            @Dependency(configName = "f", triggeredByValues = {"F", "FF"})
+        }
+    )
+    public String g;
+  }
+
+  @Test
+  public void testMultipleDependsOn() {
+    List<ConfigDefinition> configs = ConfigDefinitionExtractor.get().extract(MultipleDependsOn.class,
+        Collections.<String>emptyList(),"x");
+    Assert.assertEquals(5, configs.size());
+    ConfigDefinition a = null;
+    ConfigDefinition b = null;
+    ConfigDefinition e = null;
+    ConfigDefinition f = null;
+    ConfigDefinition g = null;
+
+    for (ConfigDefinition config : configs) {
+        switch (config.getName()) {
+          case ("a"):
+            a = config;
+            break;
+          case ("b"):
+            b = config;
+            break;
+          case ("e"):
+            e = config;
+            break;
+          case ("f"):
+            f = config;
+            break;
+          default:
+            g = config;
+        }
+    }
+    Assert.assertEquals(2, a.getDependsOnMap().size());
+    Assert.assertEquals(ImmutableSet.of("B", "C"), new HashSet<>(a.getDependsOnMap().get("b")));
+    Assert.assertEquals(ImmutableSet.of("E", "F"), new HashSet<>(a.getDependsOnMap().get("e")));
+    Assert.assertEquals(3, f.getDependsOnMap().size());
+    Assert.assertEquals(ImmutableSet.of("A"), new HashSet<>(f.getDependsOnMap().get("a")));
+    Assert.assertEquals(ImmutableSet.of("B", "C"), new HashSet<>(f.getDependsOnMap().get("b")));
+    Assert.assertEquals(ImmutableSet.of("E", "F"), new HashSet<>(f.getDependsOnMap().get("e")));
+    Assert.assertEquals(4, g.getDependsOnMap().size());
+    Assert.assertEquals(ImmutableSet.of("A"), new HashSet<>(g.getDependsOnMap().get("a")));
+    Assert.assertEquals(ImmutableSet.of("B", "C"), new HashSet<>(g.getDependsOnMap().get("b")));
+    Assert.assertEquals(ImmutableSet.of("E", "F", "G"), new HashSet<>(g.getDependsOnMap().get("e")));
+    Assert.assertEquals(ImmutableSet.of("F", "FF"), new HashSet<>(g.getDependsOnMap().get("f")));
+    Assert.assertTrue(b.getDependsOnMap().isEmpty());
+    Assert.assertTrue(e.getDependsOnMap().isEmpty());
   }
 
   public static class DependsOnChain {
@@ -337,11 +430,102 @@ public class TestConfigDefinitionExtractor {
       }
     }
     Assert.assertNotNull(a);
-    Assert.assertEquals("b", a.getDependsOn());
-    Assert.assertEquals(ImmutableList.of("B"), a.getTriggeredByValues());
     Assert.assertEquals(2, a.getDependsOnMap().size());
-    Assert.assertEquals(ImmutableList.of("B"), a.getDependsOnMap().get("b"));
-    Assert.assertEquals(ImmutableList.of("C"), a.getDependsOnMap().get("c"));
+    Assert.assertEquals(ImmutableSet.of("B"), new HashSet<>(a.getDependsOnMap().get("b")));
+    Assert.assertEquals(ImmutableSet.of("C"), new HashSet<>(a.getDependsOnMap().get("c")));
+  }
+
+  public static class CycleDependencies {
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependencies = {
+            @Dependency(configName = "c", triggeredByValues = {"anything"}),
+        }
+    )
+    public String a;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependsOn = "t",
+        triggeredByValue = "f"
+    )
+    public String c;
+
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependsOn = "f",
+        triggeredByValue = "o"
+    )
+    public String b;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependencies = {
+            @Dependency(configName = "g", triggeredByValues = "random")
+        },
+        dependsOn = "b",
+        triggeredByValue = "really don't care"
+    )
+    public String e;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependencies = {
+            @Dependency(configName = "b", triggeredByValues = "random"),
+            @Dependency(configName = "e", triggeredByValues = "dds"),
+            @Dependency(configName = "f", triggeredByValues = "f"),
+            @Dependency(configName = "g", triggeredByValues = "g")
+        }
+    )
+    public String f;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependencies = {
+            @Dependency(configName = "a", triggeredByValues = {"A"}),
+            @Dependency(configName = "c", triggeredByValues = {"A"}),
+        }
+    )
+    public String g;
+
+    @ConfigDef(
+        label = "L",
+        type = ConfigDef.Type.STRING,
+        required = true,
+        dependsOn = "g",
+        triggeredByValue = "y"
+    )
+    public String t;
+  }
+
+  @Test
+  public void testDependsOnCycle() {
+    try {
+      ConfigDefinitionExtractor.get().extract(CycleDependencies.class, Collections.<String>emptyList(), "x");
+      Assert.fail();
+    } catch (IllegalStateException ex) {
+      Set<String> cycles = ConfigDefinitionExtractor.get().getCycles();
+      Assert.assertEquals(5, cycles.size());
+      Assert.assertTrue(cycles.contains("a -> c -> t -> g -> a"));
+      Assert.assertTrue(cycles.contains("b -> f -> e -> b"));
+      Assert.assertTrue(cycles.contains("c -> t -> g -> c"));
+      Assert.assertTrue(cycles.contains("b -> f -> b"));
+      Assert.assertTrue(cycles.contains("f -> f"));
+    }
   }
 
   public static class SubSubBean {

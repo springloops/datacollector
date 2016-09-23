@@ -95,6 +95,28 @@ body {
         display: none;
       }
 
+      .dpm-icon {
+        i {
+          color: @streamsets-color;
+          font-size: 2em;
+        }
+
+        &.disconnected-mode {
+          i {
+            color: @brand-danger;
+          }
+        }
+
+        span {
+          position: absolute;
+          font-size: 10px;
+          color: white;
+          top: 18px;
+          left: 19px;
+        }
+
+      }
+
       >li {
         min-width: 50px;
         >a {
@@ -362,9 +384,13 @@ body {
         img {
           width: 220px;
           margin-bottom: 30px;
+
+          &.disconnected {
+            width: 48px;
+            margin-left: 10px;
+          }
         }
       }
-
 
       input {
         margin-bottom: @defaultPadding * 2;

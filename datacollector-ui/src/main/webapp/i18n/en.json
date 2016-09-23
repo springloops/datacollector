@@ -21,6 +21,7 @@
         "shutdown": "Shutdown"
       },
       "clusterManager": "Cluster Manager",
+      "dpm": "Dataflow Performance Manager",
       "help": {
         "about": "About",
         "main": "Help",
@@ -33,6 +34,7 @@
       },
       "home": "Home",
       "dpmEnabled": "Dataflow Performance Manager Enabled - ",
+      "dpmDisconnectedMode": "Disconnected Mode. Dataflow Performance Manager Enabled - ",
       "toggleNavigation": "Toggle navigation"
     },
     "form": {
@@ -205,6 +207,11 @@
       "pipelineName": "Pipeline Name",
       "pipelineId": "Pipeline ID",
       "version": "Version"
+    },
+    "dpmInfo": {
+      "enableDPM": "Enable DPM",
+      "headerLabel": "Dataflow Performance Manager",
+      "learnMore": "Learn More"
     },
     "remotePipeline": "Published Pipeline",
     "getStarted": "Get Started",

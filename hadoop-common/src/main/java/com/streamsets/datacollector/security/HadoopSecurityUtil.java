@@ -21,39 +21,16 @@ package com.streamsets.datacollector.security;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.authentication.util.KerberosName;
 import org.apache.zookeeper.server.util.KerberosUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.security.auth.Subject;
 import java.io.IOException;
 import java.security.AccessControlContext;
 import java.security.AccessController;
 
 public class HadoopSecurityUtil {
 
-  private static final Logger LOG = LoggerFactory.getLogger(HadoopSecurityUtil.class);
-
   public static UserGroupInformation getLoginUser(Configuration hdfsConfiguration) throws IOException {
-    UserGroupInformation loginUgi;
-    AccessControlContext accessContext = AccessController.getContext();
-    Subject subject = Subject.getSubject(accessContext);
-    // As per SDC-2917 doing this avoids deadlock
-    synchronized (SecurityUtil.getSubjectDomainLock(accessContext)) {
-      // call some method to force load static block in KerberosName
-      KerberosName.hasRulesBeenSet();
-    }
-    // This should be always out of sync block
-    UserGroupInformation.setConfiguration(hdfsConfiguration);
-    synchronized (SecurityUtil.getSubjectDomainLock(accessContext)) {
-      loginUgi = LoginUgiProviderFactory.getLoginUgiProvider().getLoginUgi(subject);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Subject = {}, Principals = {}, Login UGI = {}", subject, subject == null ? "null" : subject.getPrincipals(),
-          loginUgi);
-      }
-    }
-    return loginUgi;
+    return LoginUgiProviderFactory.getLoginUgiProvider().getLoginUgi(hdfsConfiguration);
   }
 
   public static String getDefaultRealm() throws ReflectiveOperationException {

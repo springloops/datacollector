@@ -47,6 +47,9 @@ public class KinesisSourceUpgrader extends KinesisBaseUpgrader {
         // fall through
       case 2:
         upgradeV2toV3(configs);
+        // fall through
+      case 3:
+        upgradeV3toV4(configs);
         break;
       default:
         throw new IllegalStateException(Utils.format("Unexpected fromVersion {}", fromVersion));
@@ -87,5 +90,9 @@ public class KinesisSourceUpgrader extends KinesisBaseUpgrader {
     AWSUtil.renameAWSCredentialsConfigs(configs);
 
     configs.add(new Config(KINESIS_CONFIG_BEAN + ".dataFormatConfig.csvSkipStartLines", 0));
+  }
+
+  private void upgradeV3toV4(List<Config> configs) {
+    configs.add(new Config(KINESIS_CONFIG_BEAN + ".endpoint", ""));
   }
 }
