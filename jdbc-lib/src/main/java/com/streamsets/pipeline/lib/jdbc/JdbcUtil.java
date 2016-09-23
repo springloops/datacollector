@@ -552,16 +552,16 @@ public class JdbcUtil {
 
   public static void write(
       Batch batch,
-      ELEval evaludator,
+      ELEval evaluator,
       ELVars variables,
       String tableNameOrCustomQueryTemplate,
       LoadingCache<String, JdbcRecordWriter> recordWriters,
       ErrorRecordHandler errorRecordHandler
   ) throws StageException {
 
-    if (TABLE_NAME.equals(evaludator.getConfigName())) {
+    if (TABLE_NAME.equals(evaluator.getConfigName())) {
         Multimap<String, Record> partitions = ELUtils.partitionBatchByExpression(
-                evaludator,
+                evaluator,
                 variables,
                 tableNameOrCustomQueryTemplate,
                 batch
@@ -573,7 +573,7 @@ public class JdbcUtil {
             errorRecordHandler.onError(error);
           }
         }
-    } else if(CUSTOM_QUERY.equals(evaludator.getConfigName())) {
+    } else if(CUSTOM_QUERY.equals(evaluator.getConfigName())) {
 
         List<Record> records = new ArrayList<>();
         Iterator<Record> iterator = batch.getRecords();
@@ -581,7 +581,7 @@ public class JdbcUtil {
             Record record = iterator.next();
             RecordEL.setRecordInContext(variables, record);
             try {
-                String query = evaludator.eval(variables, tableNameOrCustomQueryTemplate, String.class);
+                String query = evaluator.eval(variables, tableNameOrCustomQueryTemplate, String.class);
                 record.set(CUSTOM_QUERY_FIELD_PATH, Field.create(query));
                 records.add(record);
             } catch (ELEvalException e) {
