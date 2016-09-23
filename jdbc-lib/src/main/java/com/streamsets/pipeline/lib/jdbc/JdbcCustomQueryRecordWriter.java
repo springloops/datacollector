@@ -9,7 +9,9 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -36,10 +38,9 @@ public class JdbcCustomQueryRecordWriter implements JdbcRecordWriter {
     public List<OnRecordErrorException> writeBatch(Collection<Record> batch) throws StageException {
         List<OnRecordErrorException> errorRecords = new LinkedList<>();
         try (Connection connection = dataSource.getConnection()) {
-            for (Record record : batch)
-                writeUseCustomQuery(record);
+            writeRecordByQuery(connection, batch);
         } catch (OnRecordErrorException error) {
-
+            errorRecords.add(error);
         } catch (SQLException e) {
             String formattedError = JdbcUtil.formatSqlException(e);
             LOG.error(formattedError, e);
@@ -49,13 +50,35 @@ public class JdbcCustomQueryRecordWriter implements JdbcRecordWriter {
         return errorRecords;
     }
 
-    private void writeUseCustomQuery(Record record) throws StageException {
-//        try {
-            LOG.info(record.get(JdbcUtil.CUSTOM_QUERY_FIELD_PATH).getValueAsString());
-//        } catch (ELEvalException e) {
-//            LOG.error(JdbcErrors.JDBC_01.getMessage(), query, e);
-//            throw new OnRecordErrorException(record, JdbcErrors.JDBC_01, query);
-//        }
-    }
+    private void writeRecordByQuery(Connection connection, Collection<Record> batch) throws StageException {
 
+        int size = batch.size();
+        Iterator<Record> iterator = batch.iterator();
+        Record record = null;
+        String query = null;
+
+        try (Statement stmt = connection.createStatement()) {
+            while (iterator.hasNext()) {
+                record = iterator.next();
+                query = record.get(JdbcUtil.CUSTOM_QUERY_FIELD_PATH).getValueAsString();
+                LOG.debug("Query String in Record : {}", query);
+                stmt.addBatch(query);
+            }
+
+            int[] result = stmt.executeBatch();
+
+            if (size == result.length) {
+                // todo commit
+            } else {
+                LOG.error(JdbcErrors.JDBC_14.getMessage(), query);
+                throw new OnRecordErrorException(record, JdbcErrors.JDBC_14, query);
+            }
+
+        } catch (SQLException e) {
+            // Exception executing query
+            LOG.error(JdbcErrors.JDBC_02.getMessage(), query, e);
+            throw new OnRecordErrorException(record, JdbcErrors.JDBC_02, query, e.getMessage());
+        }
+
+    }
 }
