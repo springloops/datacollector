@@ -508,6 +508,45 @@ public class JdbcUtil {
     return dataSource;
   }
 
+  public static HikariDataSource createDataSourceForWrite(
+          HikariPoolConfigBean hikariConfigBean,
+          Properties driverProperties
+  ) throws StageException {
+    HikariConfig config = new HikariConfig();
+
+    config.setJdbcUrl(hikariConfigBean.connectionString);
+    config.setUsername(hikariConfigBean.username);
+    config.setPassword(hikariConfigBean.password);
+    config.setAutoCommit(false);
+    config.setReadOnly(false);
+    config.setMaximumPoolSize(hikariConfigBean.maximumPoolSize);
+    config.setMinimumIdle(hikariConfigBean.minIdle);
+    config.setConnectionTimeout(hikariConfigBean.connectionTimeout * MILLISECONDS);
+    config.setIdleTimeout(hikariConfigBean.idleTimeout * MILLISECONDS);
+    config.setMaxLifetime(hikariConfigBean.maxLifetime * MILLISECONDS);
+
+    if (hikariConfigBean.driverClassName != null && !hikariConfigBean.driverClassName.isEmpty()) {
+      config.setDriverClassName(hikariConfigBean.driverClassName);
+    }
+
+    if (hikariConfigBean.connectionTestQuery != null && !hikariConfigBean.connectionTestQuery.isEmpty()) {
+      config.setConnectionTestQuery(hikariConfigBean.connectionTestQuery);
+    }
+
+    // User configurable JDBC driver properties
+    config.setDataSourceProperties(driverProperties);
+
+    HikariDataSource dataSource;
+    try {
+      dataSource = new HikariDataSource(config);
+    } catch (RuntimeException e) {
+      LOG.error(JdbcErrors.JDBC_06.getMessage(), e);
+      throw new StageException(JdbcErrors.JDBC_06, e.getCause().toString());
+    }
+
+    return dataSource;
+  }
+
   public static HikariDataSource createDataSourceForRead(
       HikariPoolConfigBean hikariConfigBean,
       Properties driverProperties
@@ -569,9 +608,7 @@ public class JdbcUtil {
         Set<String> tableNames = partitions.keySet();
         for (String tableName : tableNames) {
           List<OnRecordErrorException> errors = recordWriters.getUnchecked(tableName).writeBatch(partitions.get(tableName));
-          for (OnRecordErrorException error : errors) {
-            errorRecordHandler.onError(error);
-          }
+          errorRecordHandler(errors, errorRecordHandler);
         }
     } else if(CUSTOM_QUERY.equals(evaluator.getConfigName())) {
 
@@ -590,7 +627,18 @@ public class JdbcUtil {
             }
         }
         List<OnRecordErrorException> errors = recordWriters.getUnchecked(CUSTOM_QUERY).writeBatch(records);
-    }
+        errorRecordHandler(errors, errorRecordHandler);
 
+    }
   }
+
+  private static void errorRecordHandler(
+          final List<OnRecordErrorException> errors,
+          final ErrorRecordHandler handler
+  ) throws StageException {
+    for (OnRecordErrorException error : errors) {
+      handler.onError(error);
+    }
+  }
+
 }

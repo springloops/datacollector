@@ -129,6 +129,8 @@ public class JdbcDTarget extends DTarget {
       label = "Rollback Batch on Error",
       description = "Whether or not to rollback the entire batch on error. Some JDBC drivers provide information" +
           "about individual failed rows, and can insert partial batches.",
+      dependsOn = "useMultiRowInsert",
+      triggeredByValue = "false",
       displayPosition = 50,
       group = "JDBC"
   )
@@ -141,8 +143,6 @@ public class JdbcDTarget extends DTarget {
       label = "Use Multi-Row Insert",
       description = "Whether to generate multi-row INSERT statements instead of batches of single-row INSERTs",
       displayPosition = 60,
-      dependsOn = "useCustomQuery",
-      triggeredByValue = "false",
       group = "JDBC"
   )
   public boolean useMultiRowInsert;

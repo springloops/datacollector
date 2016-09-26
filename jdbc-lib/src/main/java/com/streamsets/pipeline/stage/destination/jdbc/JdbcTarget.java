@@ -196,9 +196,7 @@ public class JdbcTarget extends BaseTarget {
     evaluator = getContext().createELEval(JdbcUtil.CUSTOM_QUERY);
     if (issues.isEmpty() && null == dataSource) {
       try {
-
-        // todo change createDataSourceForWrite!!
-        dataSource = JdbcUtil.createDataSourceForRead(hikariConfigBean, driverProperties);
+        dataSource = JdbcUtil.createDataSourceForWrite(hikariConfigBean, driverProperties);
       } catch (StageException e) {
         issues.add(context.createConfigIssue(Groups.JDBC.name(), CONNECTION_STRING, JdbcErrors.JDBC_00, e.toString()));
       }
@@ -224,7 +222,8 @@ public class JdbcTarget extends BaseTarget {
             recordWriter = new JdbcCustomQueryRecordWriter(
                     hikariConfigBean.connectionString,
                     dataSource,
-                    rollbackOnError
+                    rollbackOnError,
+                    useMultiRowInsert
             );
         } else {
           if (!useMultiRowInsert) {
