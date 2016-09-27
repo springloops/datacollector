@@ -56,11 +56,6 @@ public class TestJdbcTarget {
           " (P_ID, FIRST_NAME, LAST_NAME, TS)" +
           " VALUES (${record:value(\"/P_ID\")}, '${record:value(\"/FIRST_NAME\")}', '${record:value(\"/LAST_NAME\")}', '${record:value(\"/TS\")}')";
 
-  private final String updateQuery = "UPDATE TEST.TEST_TABLE" +
-          " SET FIRST_NAME = '${record:value(\"first_name\")}'" +
-          " WHERE P_ID = '${record:value(\"[0]\")}'";
-
-
   private final String h2ConnectionString = "jdbc:h2:mem:" + database;
 
   private Connection connection = null;
@@ -754,7 +749,7 @@ public class TestJdbcTarget {
 
     Target useCustomQueryTarget = new JdbcTarget(
             true,
-            updateQuery,
+            insertQuery,
             tableName,
             fieldMappings,
             false,
@@ -1074,13 +1069,6 @@ public class TestJdbcTarget {
   public void testDateTimeTypesByCustomQuery() throws Exception {
     Date d = new Date();
 
-    List<JdbcFieldColumnParamMapping> fieldMappings = ImmutableList.of(
-            new JdbcFieldColumnParamMapping("[0]", "P_ID"),
-            new JdbcFieldColumnParamMapping("[1]", "T"),
-            new JdbcFieldColumnParamMapping("[2]", "D"),
-            new JdbcFieldColumnParamMapping("[3]", "DT")
-    );
-
     String insertQuery = "INSERT INTO TEST.DATETIMES" +
             " (P_ID, T, D, DT)" +
             " VALUES (${record:value(\"/P_ID\")}, '${record:value(\"/T\")}', '${record:value(\"/D\")}', '${record:value(\"/DT\")}')";
@@ -1118,6 +1106,105 @@ public class TestJdbcTarget {
       assertEquals(new SimpleDateFormat("YYY-MM-dd").format(d), rs.getDate(3).toString());
       assertEquals(d, rs.getTimestamp(4));
       assertFalse(rs.next());
+    }
+  }
+
+  @Test
+  public void testUpdateByCustomQuery() throws Exception {
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+
+    try (Statement statement = connection.createStatement()) {
+        statement.executeUpdate("INSERT INTO TEST.TEST_TABLE (P_ID, FIRST_NAME, LAST_NAME, TS) VALUES (1, 'SungMin', 'Oh', '2016-09-27 09:42:36')");
+    }
+
+    String updateQuery = "UPDATE TEST.TEST_TABLE" +
+            " SET FIRST_NAME = '${record:value(\"/FIRST_NAME\")}'," +
+            " LAST_NAME = '${record:value(\"/LAST_NAME\")}'," +
+            " TS = '${record:value(\"/TS\")}'" +
+            " WHERE P_ID = '${record:value(\"/P_ID\")}'";
+
+    Target target = new JdbcTarget(
+            true,
+            updateQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+
+    Date d = new Instant().toDate();
+    Record record = RecordCreator.create();
+    Map<String, Field> map = new HashMap();
+    map.put("P_ID", Field.create(1));
+    map.put("FIRST_NAME", Field.create("KyengLyang"));
+    map.put("LAST_NAME", Field.create("Lee"));
+    map.put("TS", Field.createDatetime(d));
+
+    record.set(Field.create(map));
+
+    List<Record> singleRecord = ImmutableList.of(record);
+    targetRunner.runInit();
+    targetRunner.runWrite(singleRecord);
+
+
+    try (Statement statement = connection.createStatement()) {
+        ResultSet rs = statement.executeQuery("SELECT P_ID, FIRST_NAME, LAST_NAME, TS FROM TEST.TEST_TABLE WHERE P_ID = 1");
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+        assertEquals("KyengLyang", rs.getString(2));
+        assertEquals("Lee", rs.getString(3));
+        assertEquals(d, rs.getTimestamp(4));
+        assertFalse(rs.next());
+    }
+  }
+
+  @Test
+  public void testDeleteByCustomQuery() throws Exception {
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+
+    try (Statement statement = connection.createStatement()) {
+      statement.executeUpdate("INSERT INTO TEST.TEST_TABLE (P_ID, FIRST_NAME, LAST_NAME, TS) VALUES (1, 'SungMin', 'Oh', '2016-09-27 09:42:36')");
+    }
+
+    String updateQuery = "DELETE FROM TEST.TEST_TABLE" +
+            " WHERE P_ID = '${record:value(\"/P_ID\")}'";
+
+    Target target = new JdbcTarget(
+            true,
+            updateQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+
+    Date d = new Instant().toDate();
+    Record record = RecordCreator.create();
+    Map<String, Field> map = new HashMap();
+    map.put("P_ID", Field.create(1));
+
+    record.set(Field.create(map));
+
+    List<Record> singleRecord = ImmutableList.of(record);
+    targetRunner.runInit();
+    targetRunner.runWrite(singleRecord);
+
+
+    try (Statement statement = connection.createStatement()) {
+        ResultSet rs = statement.executeQuery("SELECT P_ID, FIRST_NAME, LAST_NAME, TS FROM TEST.TEST_TABLE WHERE P_ID = 1");
+        assertFalse(rs.next());
     }
   }
 }
