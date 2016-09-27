@@ -129,8 +129,6 @@ public class JdbcDTarget extends DTarget {
       label = "Rollback Batch on Error",
       description = "Whether or not to rollback the entire batch on error. Some JDBC drivers provide information" +
           "about individual failed rows, and can insert partial batches.",
-      dependsOn = "useMultiRowInsert",
-      triggeredByValue = "false",
       displayPosition = 50,
       group = "JDBC"
   )
@@ -142,6 +140,8 @@ public class JdbcDTarget extends DTarget {
       defaultValue = "true",
       label = "Use Multi-Row Insert",
       description = "Whether to generate multi-row INSERT statements instead of batches of single-row INSERTs",
+      dependsOn = "useCustomQuery",
+      triggeredByValue = "false",
       displayPosition = 60,
       group = "JDBC"
   )
@@ -154,8 +154,8 @@ public class JdbcDTarget extends DTarget {
       label = "Statement Parameter Limit",
       description = "The maximum number of prepared statement parameters allowed in each batch insert statement when " +
           "using multi-row inserts. Set to -1 to disable limit.",
-      dependsOn = "useMultiRowInsert",
-      triggeredByValue = "true",
+      dependsOn = "useCustomQuery",
+      triggeredByValue = "false",
       displayPosition = 60,
       group = "JDBC"
   )
