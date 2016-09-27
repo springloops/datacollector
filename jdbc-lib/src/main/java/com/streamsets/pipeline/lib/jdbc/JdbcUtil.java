@@ -29,6 +29,7 @@ import com.streamsets.pipeline.api.base.OnRecordErrorException;
 import com.streamsets.pipeline.api.el.ELEval;
 import com.streamsets.pipeline.api.el.ELEvalException;
 import com.streamsets.pipeline.api.el.ELVars;
+import com.streamsets.pipeline.config.DateFormat;
 import com.streamsets.pipeline.lib.el.ELUtils;
 import com.streamsets.pipeline.lib.el.RecordEL;
 import com.streamsets.pipeline.stage.common.ErrorRecordHandler;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static com.streamsets.pipeline.lib.jdbc.HikariPoolConfigBean.MILLISECONDS;
@@ -616,7 +618,25 @@ public class JdbcUtil {
         Iterator<Record> iterator = batch.getRecords();
         while(iterator.hasNext()) {
             Record record = iterator.next();
+            Set<String> fieldPaths = record.getEscapedFieldPaths();
+            for (String fieldPath : fieldPaths) {
+                final Field field = record.get(fieldPath);
+                switch (record.get(fieldPath).getType()) {
+                  case DATE:
+                  case TIME:
+                  case DATETIME:
+                    String dateMask = DateFormat.YYYY_MM_DD_HH_MM_SS.getFormat();
+                    java.text.DateFormat dateFormat = new SimpleDateFormat(dateMask, Locale.getDefault());
+                    record.set(
+                            fieldPath,
+                            Field.create(Field.Type.STRING, dateFormat.format(field.getValueAsDatetime()))
+                    );
+                    break;
+                }
+            }
+
             RecordEL.setRecordInContext(variables, record);
+
             try {
                 String query = evaluator.eval(variables, tableNameOrCustomQueryTemplate, String.class);
                 record.set(CUSTOM_QUERY_FIELD_PATH, Field.create(query));
@@ -626,6 +646,7 @@ public class JdbcUtil {
                 throw new OnRecordErrorException(record, JdbcErrors.JDBC_01, tableNameOrCustomQueryTemplate);
             }
         }
+
         List<OnRecordErrorException> errors = recordWriters.getUnchecked(CUSTOM_QUERY).writeBatch(records);
         errorRecordHandler(errors, errorRecordHandler);
 

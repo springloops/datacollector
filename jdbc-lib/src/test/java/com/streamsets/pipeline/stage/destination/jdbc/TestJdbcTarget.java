@@ -37,9 +37,8 @@ import org.junit.rules.ExpectedException;
 
 import java.sql.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.Date;
-import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -53,9 +52,15 @@ public class TestJdbcTarget {
   private final String database = "TEST";
   private final String tableName = "TEST.TEST_TABLE";
 
+  private final String insertQuery = "INSERT INTO TEST.TEST_TABLE" +
+          " (P_ID, FIRST_NAME, LAST_NAME, TS)" +
+          " VALUES (${record:value(\"/P_ID\")}, '${record:value(\"/FIRST_NAME\")}', '${record:value(\"/LAST_NAME\")}', '${record:value(\"/TS\")}')";
+
   private final String updateQuery = "UPDATE TEST.TEST_TABLE" +
           " SET FIRST_NAME = '${record:value(\"first_name\")}'" +
           " WHERE P_ID = '${record:value(\"[0]\")}'";
+
+
   private final String h2ConnectionString = "jdbc:h2:mem:" + database;
 
   private Connection connection = null;
@@ -760,5 +765,43 @@ public class TestJdbcTarget {
 
     TargetRunner useCustomQueryTargetRunner = new TargetRunner.Builder(JdbcDTarget.class, useCustomQueryTarget).build();
     assertEquals(0, useCustomQueryTargetRunner.runValidateConfigs().size());
+  }
+
+  @Test
+  public void testSingleRecordByCustomQuery() throws Exception {
+
+    Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            tableName,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+    Record record = RecordCreator.create();
+    Map<String, Field> map = new HashMap();
+    map.put("P_ID", Field.create(10));
+    map.put("FIRST_NAME", Field.create("SungMin"));
+    map.put("LAST_NAME", Field.create("Oh"));
+    map.put("TS", Field.createDatetime(new Instant().toDate()));
+
+    record.set(Field.create(map));
+
+    List<Record> singleRecord = ImmutableList.of(record);
+    targetRunner.runInit();
+    targetRunner.runWrite(singleRecord);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TEST_TABLE");
+      rs.next();
+      assertEquals(1, rs.getInt(1));
+
+    }
   }
 }

@@ -71,12 +71,12 @@ public class JdbcCustomQueryRecordWriter implements JdbcRecordWriter {
                 record = iterator.next();
                 query = record.get(JdbcUtil.CUSTOM_QUERY_FIELD_PATH).getValueAsString();
                 try {
-                    if (stmt.execute(query)) {
+                    if (stmt.executeUpdate(query) == 1) {
                         connection.commit();
                     }
                 } catch (SQLException e) {
-                    LOG.error(JdbcErrors.JDBC_02.getMessage(), query);
-                    errorRecords.add(new OnRecordErrorException(record, JdbcErrors.JDBC_02, query));
+                    LOG.error(JdbcErrors.JDBC_02.getMessage(), query, e);
+                    errorRecords.add(new OnRecordErrorException(record, JdbcErrors.JDBC_02, query, e.getMessage()));
                 }
 
             }
