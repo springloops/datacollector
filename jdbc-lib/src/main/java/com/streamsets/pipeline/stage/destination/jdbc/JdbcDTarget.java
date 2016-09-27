@@ -56,7 +56,7 @@ public class JdbcDTarget extends DTarget {
           required = false,
           type = ConfigDef.Type.BOOLEAN,
           defaultValue = "false",
-          label = "Use Custom query",
+          label = "Use Custom Query",
           description = "Whether to use default Insert or custom query",
           displayPosition = 20,
           group = "JDBC"
