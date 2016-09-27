@@ -113,6 +113,7 @@ public class TestJdbcTarget {
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_ONE;");
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_TWO;");
       statement.execute("DROP TABLE IF EXISTS TEST.TABLE_THREE;");
+      statement.execute("DROP TABLE IF EXISTS TEST.DATETIMES;");
     }
 
     // Last open connection terminates H2
@@ -769,11 +770,10 @@ public class TestJdbcTarget {
 
   @Test
   public void testSingleRecordByCustomQuery() throws Exception {
-
     Target target = new JdbcTarget(
             true,
             insertQuery,
-            tableName,
+            null,
             null,
             false,
             false,
@@ -785,7 +785,7 @@ public class TestJdbcTarget {
 
     Record record = RecordCreator.create();
     Map<String, Field> map = new HashMap();
-    map.put("P_ID", Field.create(10));
+    map.put("P_ID", Field.create(1));
     map.put("FIRST_NAME", Field.create("SungMin"));
     map.put("LAST_NAME", Field.create("Oh"));
     map.put("TS", Field.createDatetime(new Instant().toDate()));
@@ -802,6 +802,322 @@ public class TestJdbcTarget {
       rs.next();
       assertEquals(1, rs.getInt(1));
 
+    }
+  }
+
+  @Test
+  public void testRecordWithBatchUpdateExceptionByCustomQuery() throws Exception {
+    Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
+            .setOnRecordError(OnRecordError.TO_ERROR)
+            .build();
+
+    Record record1 = RecordCreator.create();
+    Map<String, Field> map1 = new HashMap();
+    map1.put("P_ID", Field.create(1));
+    map1.put("FIRST_NAME", Field.create("SungMin"));
+    map1.put("LAST_NAME", Field.create("Oh"));
+    map1.put("TS", Field.createDatetime(new Instant().toDate()));
+    record1.set(Field.create(map1));
+
+    Record record2 = RecordCreator.create();
+    Map<String, Field> map2 = new HashMap();
+    map2.put("P_ID", Field.create(1));
+    map2.put("FIRST_NAME", Field.create("Jon"));
+    map2.put("LAST_NAME", Field.create("Natkins"));
+    map2.put("TS", Field.createDatetime(new Instant().toDate()));
+    record2.set(Field.create(map2));
+
+    Record record3 = RecordCreator.create();
+    Map<String, Field> map3 = new HashMap();
+    map3.put("P_ID", Field.create(2));
+    map3.put("FIRST_NAME", Field.create("Jon"));
+    map3.put("LAST_NAME", Field.create("Daulton"));
+    map3.put("TS", Field.createDatetime(new Instant().toDate()));
+    record3.set(Field.create(map3));
+
+    List<Record> records = ImmutableList.of(record1, record2, record3);
+    targetRunner.runInit();
+    targetRunner.runWrite(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TEST_TABLE");
+      rs.next();
+      assertEquals(2, rs.getInt(1));
+    }
+
+    assertEquals(1, targetRunner.getErrorRecords().size());
+  }
+
+  @Test
+  public void testRollbackByCustomQeury() throws Exception {
+        Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            true,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
+            .setOnRecordError(OnRecordError.TO_ERROR)
+            .build();
+
+
+    Record record1 = RecordCreator.create();
+    Map<String, Field> map1 = new HashMap();
+    map1.put("P_ID", Field.create(1));
+    map1.put("FIRST_NAME", Field.create("SungMin"));
+    map1.put("LAST_NAME", Field.create("Oh"));
+    map1.put("TS", Field.createDatetime(new Instant().toDate()));
+    record1.set(Field.create(map1));
+
+    Record record2 = RecordCreator.create();
+    Map<String, Field> map2 = new HashMap();
+    map2.put("P_ID", Field.create(1));
+    map2.put("FIRST_NAME", Field.create("Jon"));
+    map2.put("LAST_NAME", Field.create("Natkins"));
+    map2.put("TS", Field.createDatetime(new Instant().toDate()));
+    record2.set(Field.create(map2));
+
+    Record record3 = RecordCreator.create();
+    Map<String, Field> map3 = new HashMap();
+    map3.put("P_ID", Field.create(2));
+    map3.put("FIRST_NAME", Field.create("Jon"));
+    map3.put("LAST_NAME", Field.create("Daulton"));
+    map3.put("TS", Field.createDatetime(new Instant().toDate()));
+    record3.set(Field.create(map3));
+
+    List<Record> records = ImmutableList.of(record1, record2, record3);
+    targetRunner.runInit();
+    targetRunner.runWrite(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TEST_TABLE");
+      rs.next();
+      assertEquals(0, rs.getInt(1));
+    }
+
+    assertEquals(3, targetRunner.getErrorRecords().size());
+  }
+
+  @Test
+  public void testRecordWithDataTypeExceptionByCustomQuery() throws Exception {
+        Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            false,
+            false,
+            -1,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target)
+            .setOnRecordError(OnRecordError.TO_ERROR)
+            .build();
+
+    Record record1 = RecordCreator.create();
+    Map<String, Field> map1 = new HashMap();
+    map1.put("P_ID", Field.create(1));
+    map1.put("FIRST_NAME", Field.create("SungMin"));
+    map1.put("LAST_NAME", Field.create("Oh"));
+    map1.put("TS", Field.createDatetime(new Instant().toDate()));
+    record1.set(Field.create(map1));
+
+    Record record2 = RecordCreator.create();
+    Map<String, Field> map2 = new HashMap();
+    map2.put("P_ID", Field.create(2));
+    map2.put("FIRST_NAME", Field.create("Jon"));
+    // Nulls will be interpreted as the a null of the target schema type regardless of Field.Type.
+    map2.put("LAST_NAME", Field.create(Field.Type.INTEGER, null));
+    map2.put("TS", Field.createDatetime(new Instant().toDate()));
+    record2.set(Field.create(map2));
+
+    Record record3 = RecordCreator.create();
+    Map<String, Field> map3 = new HashMap();
+    map3.put("P_ID", Field.create(3));
+    map3.put("FIRST_NAME", Field.create("Jon"));
+    map3.put("LAST_NAME", Field.create("Daulton"));
+    map3.put("TS", Field.create("2015011705:30:00"));
+    record3.set(Field.create(map3));
+
+    List<Record> records = ImmutableList.of(record1, record2, record3);
+    targetRunner.runInit();
+    targetRunner.runWrite(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TEST_TABLE");
+      rs.next();
+      assertEquals(2, rs.getInt(1));
+    }
+
+    assertEquals(1, targetRunner.getErrorRecords().size());
+  }
+
+  @Test
+  public void testRecordWithBadPermissionsByCustomQuery() throws Exception {
+    thrown.expect(StageException.class);
+
+    Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, unprivUser, unprivPassword)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+    Record record1 = RecordCreator.create();
+    Map<String, Field> map1 = new HashMap();
+    map1.put("P_ID", Field.create(1));
+    map1.put("FIRST_NAME", Field.create("SungMin"));
+    map1.put("LAST_NAME", Field.create("Oh"));
+    map1.put("TS", Field.createDatetime(new Instant().toDate()));
+    record1.set(Field.create(map1));
+
+    Record record2 = RecordCreator.create();
+    Map<String, Field> map2 = new HashMap();
+    map2.put("P_ID", Field.create(1));
+    map2.put("FIRST_NAME", Field.create("Jon"));
+    map2.put("LAST_NAME", Field.create("Natkins"));
+    map2.put("TS", Field.createDatetime(new Instant().toDate()));
+    record2.set(Field.create(map2));
+
+    Record record3 = RecordCreator.create();
+    Map<String, Field> map3 = new HashMap();
+    map3.put("P_ID", Field.create(2));
+    map3.put("FIRST_NAME", Field.create("Jon"));
+    map3.put("LAST_NAME", Field.create("Daulton"));
+    map3.put("TS", Field.createDatetime(new Instant().toDate()));
+    record3.set(Field.create(map3));
+
+    List<Record> records = ImmutableList.of(record1, record2, record3);
+    targetRunner.runInit();
+    targetRunner.runWrite(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM TEST.TEST_TABLE");
+      rs.next();
+      assertEquals(0, rs.getInt(1));
+    }
+  }
+
+  @Test
+  public void testBadConnectionStringByCustomQuery() throws Exception {
+    Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean("bad connection string", username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+    List<Stage.ConfigIssue> issues = targetRunner.runValidateConfigs();
+    assertEquals(1, issues.size());
+  }
+
+  @Test
+  public void testBadCredentialsByCustomQuery() throws Exception {
+    List<JdbcFieldColumnParamMapping> fieldMappings = ImmutableList.of(
+            new JdbcFieldColumnParamMapping("[0]", "P_ID"),
+            new JdbcFieldColumnParamMapping("[1]", "FIRST_NAME"),
+            new JdbcFieldColumnParamMapping("[2]", "LAST_NAME"),
+            new JdbcFieldColumnParamMapping("[3]", "TS")
+    );
+
+    Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, "foo", "bar")
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+    List<Stage.ConfigIssue> issues = targetRunner.runValidateConfigs();
+    assertEquals(1, issues.size());
+  }
+
+  @Test
+  public void testDateTimeTypesByCustomQuery() throws Exception {
+    Date d = new Date();
+
+    List<JdbcFieldColumnParamMapping> fieldMappings = ImmutableList.of(
+            new JdbcFieldColumnParamMapping("[0]", "P_ID"),
+            new JdbcFieldColumnParamMapping("[1]", "T"),
+            new JdbcFieldColumnParamMapping("[2]", "D"),
+            new JdbcFieldColumnParamMapping("[3]", "DT")
+    );
+
+    String insertQuery = "INSERT INTO TEST.DATETIMES" +
+            " (P_ID, T, D, DT)" +
+            " VALUES (${record:value(\"/P_ID\")}, '${record:value(\"/T\")}', '${record:value(\"/D\")}', '${record:value(\"/DT\")}')";
+
+    Target target = new JdbcTarget(
+            true,
+            insertQuery,
+            null,
+            null,
+            false,
+            false,
+            JdbcMultiRowRecordWriter.UNLIMITED_PARAMETERS,
+            ChangeLogFormat.NONE,
+            createConfigBean(h2ConnectionString, username, password)
+    );
+    TargetRunner targetRunner = new TargetRunner.Builder(JdbcDTarget.class, target).build();
+
+    Record record1 = RecordCreator.create();
+    Map<String, Field> map1 = new HashMap();
+    map1.put("P_ID", Field.create(1));
+    map1.put("T", Field.createTime(d));
+    map1.put("D", Field.createDate(d));
+    map1.put("DT", Field.createDatetime(d));
+    record1.set(Field.create(map1));
+
+    List<Record> records = ImmutableList.of(record1);
+    targetRunner.runInit();
+    targetRunner.runWrite(records);
+
+    connection = DriverManager.getConnection(h2ConnectionString, username, password);
+    try (Statement statement = connection.createStatement()) {
+      ResultSet rs = statement.executeQuery("SELECT * FROM TEST.DATETIMES");
+      assertTrue(rs.next());
+      assertEquals(new SimpleDateFormat("HH:mm:ss").format(d), rs.getTime(2).toString());
+      assertEquals(new SimpleDateFormat("YYY-MM-dd").format(d), rs.getDate(3).toString());
+      assertEquals(d, rs.getTimestamp(4));
+      assertFalse(rs.next());
     }
   }
 }

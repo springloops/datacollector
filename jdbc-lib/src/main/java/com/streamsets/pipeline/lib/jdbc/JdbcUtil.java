@@ -622,17 +622,34 @@ public class JdbcUtil {
             for (String fieldPath : fieldPaths) {
                 final Field field = record.get(fieldPath);
                 switch (record.get(fieldPath).getType()) {
-                  case DATE:
-                  case TIME:
-                  case DATETIME:
-                    String dateMask = DateFormat.YYYY_MM_DD_HH_MM_SS.getFormat();
-                    java.text.DateFormat dateFormat = new SimpleDateFormat(dateMask, Locale.getDefault());
-                    record.set(
-                            fieldPath,
-                            Field.create(Field.Type.STRING, dateFormat.format(field.getValueAsDatetime()))
-                    );
-                    break;
-                }
+                    case DATE: {
+                      String dateMask = DateFormat.YYYY_MM_DD.getFormat();
+                      java.text.DateFormat dateFormat = new SimpleDateFormat(dateMask, Locale.getDefault());
+                      record.set(
+                              fieldPath,
+                              Field.create(Field.Type.STRING, dateFormat.format(field.getValueAsDatetime().getTime()))
+                      );
+                      break;
+                    }
+                    case DATETIME: {
+                        String dateMask = DateFormat.YYYY_MM_DD_HH_MM_SS_SSS.getFormat();
+                        java.text.DateFormat dateFormat = new SimpleDateFormat(dateMask, Locale.getDefault());
+                        record.set(
+                                fieldPath,
+                                Field.create(Field.Type.STRING, dateFormat.format(field.getValueAsDatetime().getTime()))
+                        );
+                        break;
+                    }
+                    case TIME: {
+                        String dateMask = "HH:mm:ss";
+                        java.text.DateFormat dateFormat = new SimpleDateFormat(dateMask, Locale.getDefault());
+                        record.set(
+                                fieldPath,
+                                Field.create(Field.Type.STRING, dateFormat.format(field.getValueAsDatetime().getTime()))
+                        );
+                        break;
+                    }
+                  }
             }
 
             RecordEL.setRecordInContext(variables, record);
