@@ -317,7 +317,7 @@ public class HdfsTargetConfigBean {
     defaultValue = "${1 * HOURS}",
     label = "Late Record Time Limit (secs)",
     description = "Time limit (in seconds) for a record to be written to the corresponding HDFS directory, if the " +
-      "limit is exceeded the record will be written to the current late records file. 0 means no limit. " +
+      "limit is exceeded the record will be written to the current late records file. " +
       "If a number is used it is considered seconds, it can be multiplied by 'MINUTES' or 'HOURS', ie: " +
       "'${30 * MINUTES}'",
     displayPosition = 200,
@@ -679,17 +679,20 @@ public class HdfsTargetConfigBean {
       getUGI().doAs(new PrivilegedExceptionAction<Void>() {
         @Override
         public Void run() throws Exception {
-          if (currentWriters != null) {
-            currentWriters.closeAll();
-            currentWriters.getWriterManager().issueCachedEvents();
-          }
-          if (lateWriters != null) {
-            lateWriters.closeAll();
-            lateWriters.getWriterManager().issueCachedEvents();
-          }
-
-          if(fs != null) {
-            fs.close();
+          try {
+            if (currentWriters != null) {
+              currentWriters.closeAll();
+              currentWriters.getWriterManager().issueCachedEvents();
+            }
+            if (lateWriters != null) {
+              lateWriters.closeAll();
+              lateWriters.getWriterManager().issueCachedEvents();
+            }
+          } finally {
+            if(fs != null) {
+              fs.close();
+              fs = null;
+            }
           }
           return null;
         }
@@ -792,6 +795,11 @@ public class HdfsTargetConfigBean {
   private Configuration getHadoopConfiguration(Stage.Context context, List<Stage.ConfigIssue> issues) {
     Configuration conf = new Configuration();
     conf.setClass("fs.file.impl", RawLocalFileSystem.class, FileSystem.class);
+    //We handle the file system close ourselves in destroy
+    //If enabled, Also this will cause issues (not allow us to rename the files on destroy call)
+    // when we run a shutdown hook on app kill
+    //See https://issues.streamsets.com/browse/SDC-4057
+    conf.setBoolean("fs.automatic.close", false);
     if (hdfsKerberos) {
       conf.set(CommonConfigurationKeys.HADOOP_SECURITY_AUTHENTICATION,
         UserGroupInformation.AuthenticationMethod.KERBEROS.name());
