@@ -131,6 +131,7 @@ public class JdbcCustomQueryRecordWriter implements JdbcRecordWriter {
                 for (Record record : failedRecords) {
                     if (i >= bue.getUpdateCounts().length || bue.getUpdateCounts()[i] == PreparedStatement.EXECUTE_FAILED) {
                         errorRecords.add(new OnRecordErrorException(record, JdbcErrors.JDBC_14, formattedError));
+                        LOG.error(record.get(JdbcUtil.CUSTOM_QUERY_FIELD_PATH).getValueAsString());
                     }
                     i++;
                 }
